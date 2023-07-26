@@ -1,5 +1,6 @@
 use beni::ColorString;
 use beni::colors::EightBitColors::*;
+use futures::executor::block_on;
 
 mod argparser;
 mod scanner;
@@ -25,5 +26,5 @@ fn main() {
         scanner::ScanType::CONNECT,
     );
 
-    scanner.scan().await?;
+    let scan_result = block_on(scanner.scan());
 }
