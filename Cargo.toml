@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.3.19", features = ["derive"] }
-thiserror = "1.0.44"
 anyhow = "1.0.72"
-
+beni = { git = "https://github.com/r1k0t3k1/beni" }
+async-std = "1.12.0"

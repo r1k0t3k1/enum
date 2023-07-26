@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use std::net::{IpAddr, Ipv4Addr};
-use thiserror::Error;
-
+use std::net::Ipv4Addr;
+use anyhow::anyhow;
 
 #[derive(Parser, Debug)]
 #[command(name = "renum")]
@@ -18,15 +17,15 @@ impl Argument {
         Argument::parse()
     }
 
-    pub fn parse_ipaddresses(&self) -> anyhow::Result<Vec<IpAddr>> {
+    pub fn parse_ipaddresses(&self) -> anyhow::Result<Vec<Ipv4Addr>> {
         let mut ipaddresses = Vec::new();
         
         match &self.subcommand {
             SubCommands::PortScan { targets, ports:_, scan_type:_ } => {
                 for ip in targets.clone().split(",") {
-                    match ip.parse() {
-                        Ok(ipaddress) => ipaddresses.push(IpAddr::V4(ipaddress)),
-                        Err(_) => return Err(ParserError::InvalidIpAddressError{ ipaddress: ip.to_string() }.into()),
+                    match ip.parse::<Ipv4Addr>() {
+                        Ok(ipaddress) => ipaddresses.push(ipaddress),
+                        Err(e) => return Err(anyhow!("{}: {}", e, ip)),
                     } 
                 };
             },
@@ -35,22 +34,44 @@ impl Argument {
         Ok(ipaddresses)
     }
 
-//    pub fn parse_ports(&self) -> anyhow::Result<Vec<u16>> {
-//        let mut ports = Vec::new();
-//        
-//        match &self.subcommand {
-//            SubCommands::PortScan { targets: _, ports, scan_type:_ } => {
-//                for p in ports.clone().split(",") {
-//                    match ip.parse() {
-//                        Ok(ipaddress) => ipaddresses.push(IpAddr::V4(ipaddress)),
-//                        Err(_) => return Err(clap::Error::new(ErrorKind::InvalidValue).into()),
-//                    } 
-//                };
-//            },
-//            _ => (),
-//        }
-//        Ok(ipaddresses)
-//    }
+    pub fn parse_ports(&self) -> anyhow::Result<Vec<u16>> {
+        let mut scan_port = Vec::new();
+        
+        match &self.subcommand {
+            SubCommands::PortScan { targets: _, ports, scan_type:_ } => {
+                for p in ports.clone().split(",") {
+                    let v: Vec<&str> = p.split("-").collect();
+                    if v.len() > 2 {
+                       return Err(anyhow!("Invalid port range specified. {}", p));
+                    } 
+
+                    if v.len() == 2 {
+                        let start: u16;
+                        let end: u16;
+
+                        match v[0].parse::<u16>() {
+                            Ok(port) => start = port,
+                            Err(e) => return Err(anyhow!("{}: {}", e, v[0])),
+                        } 
+                        match v[1].parse::<u16>() {
+                            Ok(port) => end = port,
+                            Err(e) => return Err(anyhow!("{}: {}", e, v[1])),
+                        } 
+                        for i in start..=end {
+                            scan_port.push(i);
+                        }
+                        continue;
+                    }
+                    match p.parse::<u16>() {
+                        Ok(port) => scan_port.push(port.clone()),
+                        Err(e) => return Err(anyhow!("{}: {}", e, p)),
+                    } 
+                };
+            },
+            _ => (),
+        }
+        Ok(scan_port)
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -72,10 +93,4 @@ enum ScanType {
     Syn,
     Connect,
     Udp,
-}
-
-#[derive(Error, Debug)]
-pub enum ParserError {
-    #[error("Invalid IP address specified. ipaddress: {}", .ipaddress)]
-    InvalidIpAddressError { ipaddress: String },
 }
