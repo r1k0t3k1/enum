@@ -31,15 +31,42 @@ impl PortScanner {
     pub async fn scan(&self) -> anyhow::Result<()> {
         if self.scan_type == ScanType::CONNECT {
             let mut tasks = FuturesUnordered::new();
+            let mut sockets = Vec::new();
+
+            //batch size = 1024
+            //show ulimit -> $ ulimit -Sn
+
             for target in &self.targets {
                 for port in &self.ports {
-                    let socket = SocketAddrV4::new(*target, *port);
-                    tasks.push(self.try_connect(socket));
-                    while let Some(Ok(socket)) = tasks.next().await {
-                        println!("open: {}", socket.port());
-                    }
+                    sockets.push(SocketAddrV4::new(*target, *port));
                 }
             } 
+           
+            let mut socket_iterator = sockets.iter();
+
+            for _ in 0..999 {
+                if let Some(socket) = socket_iterator.next() {
+                    tasks.push(self.try_connect(*socket));
+                } else {
+                    break;
+                }
+            }
+
+            while let Some(result) = tasks.next().await {
+                if let Some(socket) = socket_iterator.next() {
+                    tasks.push(self.try_connect(*socket));
+                }
+
+                match result {
+                    Ok(socket) => {
+                        println!("open: {}", socket.port());
+                    },
+                    Err(e) => {
+                        //println!("{}", e);
+                        //return Err(anyhow!("connect error: {}", e));
+                    }
+                }
+            }
         }
         Err(anyhow!("Not Implemented."))
     }
@@ -55,7 +82,7 @@ impl PortScanner {
                 },
                 Err(e) => {
                     if current_try == tries {
-                        return Err(anyhow!("Max tries."));
+                        return Err(anyhow!("Max tries. port: {}", socket.port()));
                     }
                 }
             }

@@ -11,3 +11,4 @@ anyhow = "1.0.72"
 beni = { git = "https://github.com/r1k0t3k1/beni" }
 async-std = "1.12.0"
 futures = "0.3.28"
+libc = "0.2"

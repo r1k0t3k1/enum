@@ -1,11 +1,17 @@
 use beni::ColorString;
 use beni::colors::EightBitColors::*;
 use futures::executor::block_on;
+use libc;
 
 mod argparser;
 mod scanner;
 
 fn main() {
+    // TODO: ulimit adjustment
+    let ulimit: usize;
+    ulimit = unsafe {libc::getdtablesize() }.try_into().unwrap();
+    println!("{}", ulimit);
+
     let args = argparser::Argument::new();
 
     let mut targets = Vec::new();
